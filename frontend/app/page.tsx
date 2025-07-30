@@ -6,9 +6,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import WalletConnection from '../components/WalletConnection';
 import PortfolioChart from '../components/PortfolioChart';
 import TradingSignals from '../components/TradingSignals';
+import TradeCards from '../components/TradeCards';
+import AITradeCenterSimple from '../components/AITradeCenterSimple';
 import { PortfolioShimmer, ChartShimmer } from '../components/ShimmerLoading';
 import AlchemyService from '../services/alchemyService';
 import TradingService, { Agent } from '../services/tradingService';
+import NewsService from '../services/newsService';
+import AIAnalysisService from '../services/aiAnalysisService';
 import {
   ChartBarIcon,
   CurrencyDollarIcon,
@@ -39,6 +43,9 @@ export default function Home() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [marketData, setMarketData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [tokenNews, setTokenNews] = useState<{[symbol: string]: any[]}>({});
+  const [aiAnalyses, setAiAnalyses] = useState<{[symbol: string]: any}>({});
+  const [loadingAI, setLoadingAI] = useState(false);
   const { isConnected, address } = useAccount();
 
   useEffect(() => {
@@ -79,6 +86,9 @@ export default function Home() {
           };
         });
         setMarketData(marketData);
+
+        // Load news and AI analysis for the portfolio
+        await loadNewsAndAI(portfolioData.assets);
       } else {
         // If real data fails, show empty state - no fallback mock data
         console.warn('Failed to load real portfolio data');
@@ -105,6 +115,72 @@ export default function Home() {
     setMarketData(null);
     setAgents([]);
     setLoading(false);
+  };
+
+  const loadNewsAndAI = async (assets: any[]) => {
+    if (!assets || assets.length === 0) return;
+    
+    setLoadingAI(true);
+    console.log('🤖 Starting news and AI analysis for portfolio tokens...');
+
+    try {
+      // Get top 3 tokens by value for AI analysis
+      const topTokens = assets
+        .sort((a: any, b: any) => b.value - a.value)
+        .slice(0, 3);
+
+      console.log(`🎯 Analyzing top tokens: ${topTokens.map((t: any) => t.symbol).join(', ')}`);
+
+      // Load news for all tokens
+      const newsPromises = topTokens.map(async (asset: any) => {
+        const newsResult = await NewsService.getTokenNews(asset.symbol, 5);
+        return {
+          symbol: asset.symbol,
+          news: newsResult.success ? newsResult.data : []
+        };
+      });
+
+      const newsResults = await Promise.all(newsPromises);
+      const newsMap: {[symbol: string]: any[]} = {};
+      
+      newsResults.forEach(({ symbol, news }) => {
+        newsMap[symbol] = news;
+      });
+
+      setTokenNews(newsMap);
+      console.log(`📰 Loaded news for ${Object.keys(newsMap).length} tokens`);
+
+      // Prepare data for AI analysis
+      const tokensForAI = topTokens.map((asset: any) => ({
+        symbol: asset.symbol,
+        priceData: {
+          symbol: asset.symbol,
+          current: asset.price || 0,
+          change24h: asset.change24h || 0,
+          change7d: 0, // Would need to fetch this
+          volume24h: 1000000, // Placeholder
+          marketCap: (asset.price || 0) * (asset.balance || 0) * 1000, // Estimate
+          dailyPrices: [], // Would need historical data
+          weeklyPrices: [],
+          monthlyPrices: []
+        }
+      }));
+
+      // Get AI analysis for top tokens
+      const aiResult = await AIAnalysisService.analyzePortfolio(tokensForAI);
+      
+      if (aiResult.success && aiResult.data) {
+        setAiAnalyses(aiResult.data);
+        console.log(`🤖 AI analysis completed for ${Object.keys(aiResult.data).length} tokens`);
+      } else {
+        console.warn('❌ AI analysis failed:', aiResult.error);
+      }
+
+    } catch (error) {
+      console.error('❌ Error loading news and AI:', error);
+    } finally {
+      setLoadingAI(false);
+    }
   };
 
   if (!mounted) {
@@ -805,6 +881,18 @@ export default function Home() {
             )}
           </div>
         </div>
+
+        {/* AI Trade Analysis Section - Full Width */}
+        {isConnected && (
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6 }}
+            className="max-w-[1280px] mx-auto px-6 py-8"
+          >
+            <AITradeCenterSimple />
+          </motion.div>
+        )}
       </main>
     </div>
   );

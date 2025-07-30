@@ -14,7 +14,7 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 
 const RecentTrades = () => {
-  const { recentTrades } = useSelector((state: RootState) => state.trading);
+  const { trades } = useSelector((state: RootState) => state.trading);
 
   // Mock recent trades data
   const mockTrades = [
@@ -86,7 +86,7 @@ const RecentTrades = () => {
     },
   ];
 
-  const displayTrades = recentTrades.length > 0 ? recentTrades : mockTrades;
+  const displayTrades = trades.length > 0 ? trades : mockTrades;
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -129,7 +129,11 @@ const RecentTrades = () => {
 
   const totalProfit = displayTrades
     .filter(trade => trade.status === 'completed')
-    .reduce((sum, trade) => sum + trade.profit, 0);
+    .reduce((sum, trade) => {
+      // For mock trades, use the profit field if it exists, otherwise calculate based on value
+      const profit = 'profit' in trade ? trade.profit : (trade.value * 0.02); // 2% profit assumption
+      return sum + profit;
+    }, 0);
 
   const totalTrades = displayTrades.length;
   const completedTrades = displayTrades.filter(trade => trade.status === 'completed').length;

@@ -1,1 +1,178 @@
-'use client';import { useEffect, useState } from 'react';import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, ReferenceLine } from 'recharts';import PortfolioService from '../services/portfolioService';interface TokenChartProps {  symbol: string;  days?: number;  height?: number;  showPrice?: boolean;  showChange?: boolean;}export default function TokenChart({   symbol,   days = 7,   height = 200,  showPrice = true,  showChange = true }: TokenChartProps) {  const [chartData, setChartData] = useState<any[]>([]);  const [loading, setLoading] = useState(true);  const [error, setError] = useState<string | null>(null);  const [currentPrice, setCurrentPrice] = useState<number>(0);  const [priceChange, setPriceChange] = useState<number>(0);  useEffect(() => {    loadChartData();  }, [symbol, days]);  const loadChartData = async () => {    setLoading(true);    setError(null);        try {      const result = await PortfolioService.getHistoricalData(symbol, days);            if (result.success && result.data?.prices) {        const prices = result.data.prices;                // Format data for chart        const formattedData = prices.map((price: any, index: number) => ({          time: price.timestamp,          price: price.price,          formattedTime: new Date(price.timestamp).toLocaleDateString(),          index        }));        setChartData(formattedData);                // Calculate price change        if (formattedData.length > 1) {          const firstPrice = formattedData[0].price;          const lastPrice = formattedData[formattedData.length - 1].price;          const change = ((lastPrice - firstPrice) / firstPrice) * 100;                    setCurrentPrice(lastPrice);          setPriceChange(change);        }      } else {        setError(result.error || 'Failed to load chart data');      }    } catch (err) {      setError('Error loading chart data');      console.error('Chart data error:', err);    } finally {      setLoading(false);    }  };  if (loading) {    return (      <div className="flex items-center justify-center" style={{ height }}>        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>      </div>    );  }  if (error) {    return (      <div className="flex items-center justify-center text-gray-500" style={{ height }}>        <div className="text-center">          <div className="text-sm">Chart unavailable</div>          <div className="text-xs text-gray-400">{error}</div>        </div>      </div>    );  }  if (chartData.length === 0) {    return (      <div className="flex items-center justify-center text-gray-500" style={{ height }}>        <div className="text-sm">No chart data available</div>      </div>    );  }  const isPositive = priceChange >= 0;  const lineColor = isPositive ? '#22C55E' : '#EF4444';  const gradientId = `gradient-${symbol}-${isPositive ? 'positive' : 'negative'}`;  return (    <div className="w-full">      {/* Price and Change Header */}      {(showPrice || showChange) && (        <div className="flex items-center justify-between mb-2">          {showPrice && (            <div className="text-lg font-semibold text-gray-900">              ${currentPrice.toLocaleString(undefined, {                 minimumFractionDigits: 2,                 maximumFractionDigits: symbol === 'BTC' ? 0 : 4               })}            </div>          )}          {showChange && (            <div className={`text-sm font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>              {isPositive ? '+' : ''}{priceChange.toFixed(2)}%            </div>          )}        </div>      )}      {/* Chart */}      <div style={{ height }}>        <ResponsiveContainer width="100%" height="100%">          <LineChart data={chartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>            <defs>              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">                <stop offset="0%" stopColor={lineColor} stopOpacity={0.1} />                <stop offset="100%" stopColor={lineColor} stopOpacity={0} />              </linearGradient>            </defs>                        <XAxis               dataKey="index"              hide            />            <YAxis               domain={['dataMin', 'dataMax']}              hide            />                        {/* Reference line for break-even */}            {chartData.length > 0 && (              <ReferenceLine                 y={chartData[0].price}                 stroke="#E5E7EB"                 strokeDasharray="2 2"                strokeWidth={1}              />            )}                        <Line              type="monotone"              dataKey="price"              stroke={lineColor}              strokeWidth={2}              dot={false}              fill={`url(#${gradientId})`}              activeDot={{                 r: 4,                 fill: lineColor,                strokeWidth: 2,                stroke: '#fff'              }}            />          </LineChart>        </ResponsiveContainer>      </div>      {/* Time Period Label */}      <div className="text-xs text-gray-500 text-center mt-1">        {days === 1 ? '24h' : `${days}d`} period      </div>    </div>  );}
+'use client';
+
+import { useEffect, useState } from 'react';
+import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, ReferenceLine } from 'recharts';
+import PortfolioService from '../services/portfolioService';
+
+interface TokenChartProps {
+  symbol: string;
+  days?: number;
+  height?: number;
+  showPrice?: boolean;
+  showChange?: boolean;
+}
+
+export default function TokenChart({ 
+  symbol, 
+  days = 7, 
+  height = 200,
+  showPrice = true,
+  showChange = true 
+}: TokenChartProps) {
+  const [chartData, setChartData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [currentPrice, setCurrentPrice] = useState<number>(0);
+  const [priceChange, setPriceChange] = useState<number>(0);
+
+  useEffect(() => {
+    loadChartData();
+  }, [symbol, days]);
+
+  const loadChartData = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const result = await PortfolioService.getHistoricalData(symbol, days);
+      
+      if (result.success && result.data?.prices) {
+        const prices = result.data.prices;
+        
+        // Format data for chart
+        const formattedData = prices.map((price: any, index: number) => ({
+          time: price.timestamp,
+          price: price.price,
+          formattedTime: new Date(price.timestamp).toLocaleDateString(),
+          index
+        }));
+
+        setChartData(formattedData);
+        
+        // Calculate price change
+        if (formattedData.length > 1) {
+          const firstPrice = formattedData[0].price;
+          const lastPrice = formattedData[formattedData.length - 1].price;
+          const change = ((lastPrice - firstPrice) / firstPrice) * 100;
+          
+          setCurrentPrice(lastPrice);
+          setPriceChange(change);
+        }
+      } else {
+        setError(result.error || 'Failed to load chart data');
+      }
+    } catch (err) {
+      setError('Error loading chart data');
+      console.error('Chart data error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center" style={{ height }}>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center text-gray-500" style={{ height }}>
+        <div className="text-center">
+          <div className="text-sm">Chart unavailable</div>
+          <div className="text-xs text-gray-400">{error}</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (chartData.length === 0) {
+    return (
+      <div className="flex items-center justify-center text-gray-500" style={{ height }}>
+        <div className="text-sm">No chart data available</div>
+      </div>
+    );
+  }
+
+  const isPositive = priceChange >= 0;
+  const lineColor = isPositive ? '#22C55E' : '#EF4444';
+  const gradientId = `gradient-${symbol}-${isPositive ? 'positive' : 'negative'}`;
+
+  return (
+    <div className="w-full">
+      {/* Price and Change Header */}
+      {(showPrice || showChange) && (
+        <div className="flex items-center justify-between mb-2">
+          {showPrice && (
+            <div className="text-lg font-semibold text-gray-900">
+              ${currentPrice.toLocaleString(undefined, { 
+                minimumFractionDigits: 2, 
+                maximumFractionDigits: symbol === 'BTC' ? 0 : 4 
+              })}
+            </div>
+          )}
+          {showChange && (
+            <div className={`text-sm font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+              {isPositive ? '+' : ''}{priceChange.toFixed(2)}%
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Chart */}
+      <div style={{ height }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={chartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+            <defs>
+              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={lineColor} stopOpacity={0.1} />
+                <stop offset="100%" stopColor={lineColor} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            
+            <XAxis 
+              dataKey="index"
+              hide
+            />
+            <YAxis 
+              domain={['dataMin', 'dataMax']}
+              hide
+            />
+            
+            {/* Reference line for break-even */}
+            {chartData.length > 0 && (
+              <ReferenceLine 
+                y={chartData[0].price}
+                stroke="#E5E7EB"
+                strokeDasharray="2 2"
+                strokeWidth={1}
+              />
+            )}
+            
+            <Line
+              type="monotone"
+              dataKey="price"
+              stroke={lineColor}
+              strokeWidth={2}
+              dot={false}
+              fill={`url(#${gradientId})`}
+              activeDot={{ 
+                r: 4, 
+                fill: lineColor,
+                strokeWidth: 2,
+                stroke: '#fff'
+              }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Time Period Label */}
+      <div className="text-xs text-gray-500 text-center mt-1">
+        {days === 1 ? '24h' : `${days}d`} period
+      </div>
+    </div>
+  );
+}

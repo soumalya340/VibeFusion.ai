@@ -7,8 +7,9 @@ import {
   ArrowUpIcon, 
   ArrowDownIcon,
   CurrencyDollarIcon,
-  TrendingUpIcon,
-  TrendingDownIcon,
+  ChartBarIcon,
+  ArrowTrendingUpIcon,
+  ArrowTrendingDownIcon,
 } from '@heroicons/react/24/outline';
 
 const PortfolioOverview = () => {
@@ -48,7 +49,7 @@ const PortfolioOverview = () => {
       value: formatCurrency(totalPnL),
       change: formatPercentage(totalPnLPercentage),
       changeType: totalPnL >= 0 ? 'positive' : 'negative' as const,
-      icon: totalPnL >= 0 ? TrendingUpIcon : TrendingDownIcon,
+      icon: totalPnL >= 0 ? ArrowTrendingUpIcon : ArrowTrendingDownIcon,
     },
     {
       name: 'Daily P&L',
