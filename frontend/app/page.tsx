@@ -52,25 +52,36 @@ export default function Home() {
   const loadRealData = async () => {
     setLoading(true);
     try {
-      // Load real portfolio data from Alchemy
-      const portfolioResult = await AlchemyService.getPortfolioValue(address!);
+      // Import the new portfolio service
+      const PortfolioService = (await import('../services/portfolioService')).default;
+      
+      // Load real portfolio data
+      const portfolioResult = await PortfolioService.getWalletPortfolio(address!);
+      
       if (portfolioResult.success && portfolioResult.data) {
+        const portfolioData = portfolioResult.data;
+        
         setPortfolioData({
-          totalValue: portfolioResult.data.totalValue,
-          breakdown: portfolioResult.data.breakdown,
-          dailyChange: portfolioResult.data.totalValue * 0.027, // Calculated from price changes
-          dailyPercentage: 2.7,
-          lastUpdated: portfolioResult.data.lastUpdated
+          totalValue: portfolioData.totalValue,
+          assets: portfolioData.assets,
+          dailyChange: portfolioData.dailyChange,
+          dailyPercentage: portfolioData.dailyPercentage,
+          lastUpdated: portfolioData.lastUpdated
         });
-      } else {
-        // Fallback to enhanced mock data if Alchemy fails
-        await loadMockDataWithRealPrices();
-      }
 
-      // Load real market data
-      const marketResult = await TradingService.fetchMarketData();
-      if (marketResult.success) {
-        setMarketData(marketResult.data);
+        // Set market data from the portfolio assets
+        const marketData: any = {};
+        portfolioData.assets.forEach((asset: any) => {
+          marketData[asset.symbol] = {
+            price: asset.price,
+            change24h: asset.change24h
+          };
+        });
+        setMarketData(marketData);
+      } else {
+        // Fallback to mock data if real data fails
+        console.warn('Failed to load real portfolio data, using mock data');
+        await loadMockDataWithRealPrices();
       }
 
       // Load agents
@@ -114,18 +125,25 @@ export default function Home() {
         const value = parseFloat(holding.balance) * priceInfo.price;
         return {
           symbol: holding.symbol,
+          name: getTokenName(holding.symbol),
           balance: holding.balance,
           value: value,
           change24h: priceInfo.change24h,
-          price: priceInfo.price
+          price: priceInfo.price,
+          percentage: 0 // Will be calculated below
         };
       });
 
       const totalValue = breakdown.reduce((sum, asset) => sum + asset.value, 0);
+      
+      // Calculate percentages
+      breakdown.forEach(asset => {
+        asset.percentage = totalValue > 0 ? (asset.value / totalValue) * 100 : 0;
+      });
 
       setPortfolioData({
         totalValue,
-        breakdown,
+        assets: breakdown,
         dailyChange: totalValue * 0.027,
         dailyPercentage: 2.7,
         lastUpdated: new Date().toISOString()
@@ -251,7 +269,7 @@ export default function Home() {
   };
 
   // Process allocations from portfolio data with enhanced visuals
-  const allocations = portfolioData?.breakdown?.map((asset: any, index: number) => {
+  const allocations = portfolioData?.assets?.map((asset: any, index: number) => {
     const colors = ['#FF6B35', '#2FE0FF', '#8247E5', '#375BD2', '#FF007A', '#B6509E', '#00D395', '#FFA500'];
     const icons = ['₿', 'Ξ', '⬟', '🔗', '🏛️', '💜', '🔷', '🟠'];
     
@@ -260,35 +278,34 @@ export default function Home() {
       'BTC': '₿',
       'ETH': 'Ξ', 
       'UNI': '🦄',
-      'LINK': '�',
-      'AAVE': '�👻',
+      'LINK': '🔗',
+      'AAVE': '👻',
       'MATIC': '💜',
       'COMP': '🏛️',
       'USDC': '💵',
       'USDT': '💰'
     };
     
-    const percentage = (asset.value / totalValue) * 100;
-    
     return {
       symbol: asset.symbol,
       name: getTokenName(asset.symbol),
-      amount: parseFloat(asset.balance).toFixed(asset.symbol === 'ETH' || asset.symbol === 'BTC' ? 2 : 0),
-      value: asset.value,
-      percentage: percentage.toFixed(1),
+      amount: asset.balance || 0,
+      value: asset.value || 0,
+      percentage: asset.percentage ? asset.percentage.toFixed(1) : '0.0',
       color: getTokenColor(asset.symbol, index),
       icon: iconMap[asset.symbol] || icons[index % icons.length],
-      warning: asset.change24h < -5, // Show warning if price dropped more than 5%
-      change24h: asset.change24h
+      warning: (asset.change24h || 0) < -5, // Show warning if price dropped more than 5%
+      change24h: asset.change24h || 0,
+      price: asset.price || 0
     };
   }) || [];
 
-  const breakdown = portfolioData?.breakdown?.map((asset: any) => ({
+  const breakdown = portfolioData?.assets?.map((asset: any) => ({
     token: asset.symbol,
-    amount: asset.balance,
-    value: `$${asset.value.toLocaleString()}`,
-    percentage: `${asset.change24h >= 0 ? '+' : ''}${asset.change24h.toFixed(1)}%`,
-    positive: asset.change24h >= 0
+    amount: asset.balance || 0,
+    value: `$${(asset.value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    percentage: `${(asset.change24h || 0) >= 0 ? '+' : ''}${(asset.change24h || 0).toFixed(1)}%`,
+    positive: (asset.change24h || 0) >= 0
   })) || [];
 
   const metrics = [

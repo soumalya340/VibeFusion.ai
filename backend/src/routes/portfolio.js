@@ -3,6 +3,7 @@ const { body, validationResult } = require('express-validator');
 const Portfolio = require('../models/Portfolio');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
+const PortfolioService = require('../services/PortfolioService');
 
 const router = express.Router();
 
@@ -283,6 +284,164 @@ router.get('/analytics', auth, async (req, res) => {
     res.status(500).json({
       error: 'Server error',
       message: 'Failed to get analytics',
+    });
+  }
+});
+
+// @route   GET /api/portfolio/:walletAddress
+// @desc    Get portfolio for wallet address
+// @access  Public (for demo, should be private in production)
+router.get('/:walletAddress', async (req, res) => {
+  try {
+    const { walletAddress } = req.params;
+    
+    if (!walletAddress || !walletAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+      return res.status(400).json({
+        error: 'Invalid wallet address',
+        message: 'Please provide a valid Ethereum wallet address'
+      });
+    }
+
+    const portfolio = await PortfolioService.getWalletPortfolio(walletAddress);
+    
+    if (!portfolio.success) {
+      return res.status(500).json({
+        error: 'Failed to fetch portfolio',
+        message: portfolio.error
+      });
+    }
+
+    res.json({
+      success: true,
+      data: portfolio.data
+    });
+
+  } catch (error) {
+    console.error('Portfolio route error:', error);
+    res.status(500).json({
+      error: 'Server error',
+      message: 'Failed to fetch portfolio data'
+    });
+  }
+});
+
+// @route   GET /api/portfolio/:walletAddress/history/:symbol
+// @desc    Get historical price data for a token
+// @access  Public
+router.get('/:walletAddress/history/:symbol', async (req, res) => {
+  try {
+    const { symbol } = req.params;
+    const { days = 7 } = req.query;
+
+    const historicalData = await PortfolioService.getHistoricalData(symbol, parseInt(days));
+    
+    if (!historicalData.success) {
+      return res.status(500).json({
+        error: 'Failed to fetch historical data',
+        message: historicalData.error
+      });
+    }
+
+    res.json({
+      success: true,
+      data: historicalData.data
+    });
+
+  } catch (error) {
+    console.error('Historical data route error:', error);
+    res.status(500).json({
+      error: 'Server error',
+      message: 'Failed to fetch historical data'
+    });
+  }
+});
+
+// @route   GET /api/portfolio/prices/current
+// @desc    Get current prices for multiple tokens
+// @access  Public
+router.get('/prices/current', async (req, res) => {
+  try {
+    const { symbols } = req.query;
+    
+    if (!symbols) {
+      return res.status(400).json({
+        error: 'Missing symbols parameter',
+        message: 'Please provide comma-separated token symbols'
+      });
+    }
+
+    const symbolsArray = symbols.split(',');
+    const prices = await PortfolioService.getCurrentPrices(symbolsArray);
+
+    res.json({
+      success: true,
+      data: prices
+    });
+
+  } catch (error) {
+    console.error('Current prices route error:', error);
+    res.status(500).json({
+      error: 'Server error',
+      message: 'Failed to fetch current prices'
+    });
+  }
+});
+
+// @route   GET /api/portfolio/wallet/:address
+// @desc    Get real portfolio data for wallet address
+// @access  Public
+router.get('/wallet/:address', async (req, res) => {
+  try {
+    const { address } = req.params;
+    
+    // Validate wallet address format
+    if (!address || !address.match(/^0x[a-fA-F0-9]{40}$/)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid wallet address format'
+      });
+    }
+
+    console.log(`📊 VibeFusion: Getting real portfolio for wallet ${address}`);
+    
+    const portfolio = await PortfolioService.getWalletPortfolio(address);
+    
+    if (portfolio.success) {
+      res.json(portfolio);
+    } else {
+      res.status(500).json(portfolio);
+    }
+  } catch (error) {
+    console.error('❌ Wallet portfolio route error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch wallet portfolio data'
+    });
+  }
+});
+
+// @route   GET /api/portfolio/historical/:symbol
+// @desc    Get historical price data for a token
+// @access  Public
+router.get('/historical/:symbol', async (req, res) => {
+  try {
+    const { symbol } = req.params;
+    const { days = 7 } = req.query;
+    
+    console.log(`📈 VibeFusion: Getting historical data for ${symbol} (${days} days)`);
+    
+    const historicalData = await PortfolioService.getHistoricalData(symbol, parseInt(days));
+    
+    if (historicalData.success) {
+      res.json(historicalData);
+    } else {
+      res.status(500).json(historicalData);
+    }
+  } catch (error) {
+    console.error('❌ Historical data route error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch historical data'
     });
   }
 });

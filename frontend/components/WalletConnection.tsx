@@ -51,27 +51,45 @@ const WalletConnection = () => {
     toast.success('Wallet disconnected');
   };
 
-  // Simple MetaMask connection fallback
-  const connectMetaMask = async () => {
-    if (typeof (window as any).ethereum !== 'undefined') {
-      try {
-        dispatch(setLoading(true));
-        const accounts = await (window as any).ethereum.request({
-          method: 'eth_requestAccounts',
-        });
-        if (accounts.length > 0) {
-          dispatch(connectWallet(accounts[0]));
-          toast.success('MetaMask connected successfully!');
-        }
-      } catch (error: any) {
-        console.error('MetaMask connection error:', error);
-        toast.error('Failed to connect MetaMask');
-      } finally {
-        dispatch(setLoading(false));
-      }
-    } else {
-      toast.error('MetaMask is not installed');
+  // Filter connectors to only show available ones
+  const availableConnectors = connectors.filter(connector => {
+    // Check if the connector is available
+    if (connector.id === 'metaMask') {
+      return typeof (window as any).ethereum !== 'undefined' && (window as any).ethereum.isMetaMask;
     }
+    if (connector.id === 'coinbaseWallet') {
+      return typeof (window as any).ethereum !== 'undefined' && (window as any).ethereum.isCoinbaseWallet;
+    }
+    if (connector.id === 'walletConnect') {
+      return true; // WalletConnect is always available as it opens a modal
+    }
+    return connector.ready;
+  });
+
+  const getConnectorInfo = (connector: any) => {
+    const connectorMap: { [key: string]: { name: string; icon: string; description: string } } = {
+      'metaMask': {
+        name: 'MetaMask',
+        icon: '🦊',
+        description: 'Connect with MetaMask wallet'
+      },
+      'coinbaseWallet': {
+        name: 'Coinbase Wallet',
+        icon: '🔵',
+        description: 'Connect with Coinbase Wallet'
+      },
+      'walletConnect': {
+        name: 'WalletConnect',
+        icon: '🔗',
+        description: 'Scan QR code with your mobile wallet'
+      }
+    };
+
+    return connectorMap[connector.id] || {
+      name: connector.name,
+      icon: '👛',
+      description: `Connect with ${connector.name}`
+    };
   };
 
   if (isConnected) {
@@ -123,71 +141,56 @@ const WalletConnection = () => {
       </div>
 
       <div className="space-y-3">
-        {/* MetaMask Direct Connection */}
-        <button
-          onClick={connectMetaMask}
-          disabled={isLoading}
-          className="w-full p-4 border-2 rounded-xl transition-all duration-200 flex items-center justify-between border-gray-200 hover:border-gray-300 bg-white"
-        >
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center">
-              <WalletIcon className="w-4 h-4 text-white" />
-            </div>
-            <div className="text-left">
-              <h3 className="font-medium text-gray-900">
-                MetaMask
-              </h3>
-              <p className="text-xs text-gray-600">
-                Connect with MetaMask wallet
-              </p>
-            </div>
-          </div>
-          
-          {isLoading && (
-            <div className="w-5 h-5 border-2 border-gray-300 border-t-transparent rounded-full animate-spin" />
-          )}
-        </button>
-
-        {/* Wagmi Connectors */}
-        {connectors.map((connector) => {
-          const isConnecting = isLoading && pendingConnector?.id === connector.id;
-          const isSelected = selectedConnector === connector.id;
+        {/* Available Wallet Connectors */}
+        {availableConnectors.map((connector) => {
+          const connectorInfo = getConnectorInfo(connector);
+          const isConnecting = isLoading && selectedConnector === connector.id;
           
           return (
             <button
               key={connector.id}
               onClick={() => handleConnect(connector)}
-              disabled={!connector.ready || isConnecting}
-              className={`w-full p-4 border-2 rounded-xl transition-all duration-200 flex items-center justify-between ${
-                connector.ready
-                  ? 'border-gray-200 hover:border-gray-300 bg-white'
-                  : 'border-gray-100 bg-gray-50 cursor-not-allowed'
-              }`}
+              disabled={isLoading}
+              className="w-full p-4 border-2 rounded-xl transition-all duration-200 flex items-center justify-between border-gray-200 hover:border-gray-300 bg-white disabled:opacity-50"
             >
               <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                  <WalletIcon className="w-4 h-4 text-white" />
+                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center text-lg">
+                  {connectorInfo.icon}
                 </div>
                 <div className="text-left">
-                  <h3 className="font-medium text-gray-900 dark:text-white">
-                    {connector.name}
+                  <h3 className="font-medium text-gray-900">
+                    {connectorInfo.name}
                   </h3>
-                  {!connector.ready && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Not installed
-                    </p>
-                  )}
+                  <p className="text-xs text-gray-600">
+                    {connectorInfo.description}
+                  </p>
                 </div>
               </div>
               
-              {isConnecting || isSelected ? (
-                <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-              ) : !connector.ready ? (
-                <ExclamationTriangleIcon className="w-5 h-5 text-gray-400" />
-              ) : null}
+              {isConnecting && (
+                <div className="w-5 h-5 border-2 border-gray-300 border-t-transparent rounded-full animate-spin" />
+              )}
             </button>
           );
         })}
+
+        {availableConnectors.length === 0 && (
+          <div className="text-center py-8">
+            <ExclamationTriangleIcon className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No Wallets Detected</h3>
+            <p className="text-gray-600 mb-4">
+              Please install a supported wallet like MetaMask or Coinbase Wallet
+            </p>
+            <a
+              href="https://metamask.io/download/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+            >
+              Install MetaMask
+            </a>
+          </div>
+        )}
       </div>
 
       <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">

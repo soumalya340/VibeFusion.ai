@@ -1,7 +1,7 @@
 import { Network, Alchemy, Utils, AssetTransfersCategory, SortingOrder } from 'alchemy-sdk';
 
 const settings = {
-  apiKey: process.env.NEXT_PUBLIC_ALCHEMY_API_KEY || "sd3rs13BpGn0gPddmhPfW",
+  apiKey: process.env.NEXT_PUBLIC_ALCHEMY_API_KEY || "alcht_GJ9vDvr8klYAd3wWGx2pMAg3grZ1O2",
   network: Network.ETH_MAINNET,
 };
 

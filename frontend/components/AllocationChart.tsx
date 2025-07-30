@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Chart as ChartJS,
   ArcElement,
@@ -10,6 +10,8 @@ import {
   TooltipItem
 } from 'chart.js';
 import { Doughnut } from 'react-chartjs-2';
+import { motion } from 'framer-motion';
+import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -19,6 +21,10 @@ interface AllocationItem {
   percentage: number;
   value: number;
   color: string;
+  warning?: boolean;
+  amount?: string;
+  change24h?: number;
+  icon?: React.ReactNode;
 }
 
 interface AllocationChartProps {
@@ -26,6 +32,8 @@ interface AllocationChartProps {
 }
 
 export default function AllocationChart({ allocations }: AllocationChartProps) {
+  const [selectedToken, setSelectedToken] = useState<string | null>(null);
+
   const chartData = {
     labels: allocations.map(allocation => allocation.symbol),
     datasets: [
@@ -141,6 +149,51 @@ export default function AllocationChart({ allocations }: AllocationChartProps) {
               </span>
             </div>
           </div>
+        ))}
+      </div>
+
+      {/* Allocation Cards */}
+      <div className="mt-4 grid grid-cols-2 gap-4">
+        {allocations.filter(a => a.symbol !== 'BTC' && a.symbol !== 'ETH').map((token, index) => (
+          <motion.div
+            key={token.symbol}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: (index + 2) * 0.1 }}
+            className="w-[170px] h-[140px] rounded-xl p-3 text-white relative cursor-pointer hover:scale-105 transition-transform group"
+            style={{ backgroundColor: token.color }}
+            onClick={() => setSelectedToken(token.symbol)}
+          >
+            {token.warning && (
+              <div className="absolute top-2 right-2">
+                <ExclamationTriangleIcon className="w-4 h-4 text-[#EF4444]" />
+              </div>
+            )}
+            
+            <div className="flex items-center space-x-2 mb-2">
+              <span className="text-lg">{token.icon}</span>
+              <div>
+                <div className="font-semibold text-sm">{token.symbol}</div>
+                <div className="text-xs opacity-90">{token.name}</div>
+              </div>
+            </div>
+            
+            <div className="mt-auto absolute bottom-3">
+              <div className="text-sm font-bold">{token.amount}</div>
+              <div className="text-xs opacity-90">${token.value.toLocaleString()}</div>
+              <div className="text-xs font-medium mt-1">{token.percentage}%</div>
+              <div className={`text-xs font-medium ${
+                token.change24h!>= 0 ? 'text-green-200' : 'text-red-200'
+              }`}>
+                {token.change24h!>= 0 ? '+' : ''}{token.change24h!.toFixed(2)}%
+              </div>
+            </div>
+            
+            {/* Show "View Chart" on hover */}
+            <div className="absolute inset-0 bg-black bg-opacity-20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-xl">
+              <span className="text-white text-xs font-medium">View Chart</span>
+            </div>
+          </motion.div>
         ))}
       </div>
     </div>
