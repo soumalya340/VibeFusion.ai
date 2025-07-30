@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import WalletConnection from '../components/WalletConnection';
 import PortfolioChart from '../components/PortfolioChart';
 import TradingSignals from '../components/TradingSignals';
+import { PortfolioShimmer, ChartShimmer } from '../components/ShimmerLoading';
 import AlchemyService from '../services/alchemyService';
 import TradingService, { Agent } from '../services/tradingService';
 import {
@@ -79,9 +80,10 @@ export default function Home() {
         });
         setMarketData(marketData);
       } else {
-        // Fallback to mock data if real data fails
-        console.warn('Failed to load real portfolio data, using mock data');
-        await loadMockDataWithRealPrices();
+        // If real data fails, show empty state - no fallback mock data
+        console.warn('Failed to load real portfolio data');
+        setPortfolioData(null);
+        setMarketData(null);
       }
 
       // Load agents
@@ -89,102 +91,19 @@ export default function Home() {
       setAgents(agentsData);
     } catch (error) {
       console.error('Error loading real data:', error);
-      await loadMockDataWithRealPrices();
+      setPortfolioData(null);
+      setMarketData(null);
     } finally {
       setLoading(false);
     }
   };
 
-  const loadMockDataWithRealPrices = async () => {
-    try {
-      // Get real market prices
-      const marketResult = await TradingService.fetchMarketData();
-      const prices = marketResult.success ? marketResult.data : {
-        BTC: { price: 43250, change24h: 2.4 },
-        ETH: { price: 2580, change24h: 1.8 },
-        UNI: { price: 6.75, change24h: 0.9 },
-        LINK: { price: 15.20, change24h: 3.2 },
-        AAVE: { price: 95.40, change24h: -1.2 },
-        MATIC: { price: 0.85, change24h: -0.5 },
-        COMP: { price: 58.30, change24h: 2.1 }
-      };
-
-      // Create realistic portfolio with real prices
-      const mockHoldings = [
-        { symbol: 'ETH', balance: '18.45' },
-        { symbol: 'BTC', balance: '1.23' },
-        { symbol: 'UNI', balance: '1342' },
-        { symbol: 'LINK', balance: '567' },
-        { symbol: 'AAVE', balance: '89' },
-        { symbol: 'MATIC', balance: '15600' },
-        { symbol: 'COMP', balance: '76' }
-      ];
-
-      const breakdown = mockHoldings.map(holding => {
-        const priceInfo = prices[holding.symbol] || { price: 0, change24h: 0 };
-        const value = parseFloat(holding.balance) * priceInfo.price;
-        return {
-          symbol: holding.symbol,
-          name: getTokenName(holding.symbol),
-          balance: holding.balance,
-          value: value,
-          change24h: priceInfo.change24h,
-          price: priceInfo.price,
-          percentage: 0 // Will be calculated below
-        };
-      });
-
-      const totalValue = breakdown.reduce((sum, asset) => sum + asset.value, 0);
-      
-      // Calculate percentages
-      breakdown.forEach(asset => {
-        asset.percentage = totalValue > 0 ? (asset.value / totalValue) * 100 : 0;
-      });
-
-      setPortfolioData({
-        totalValue,
-        assets: breakdown,
-        dailyChange: totalValue * 0.027,
-        dailyPercentage: 2.7,
-        lastUpdated: new Date().toISOString()
-      });
-
-      setMarketData(prices);
-    } catch (error) {
-      console.error('Error loading mock data with real prices:', error);
-      loadBasicMockData();
-    }
-  };
 
   const loadBasicMockData = () => {
-    // Basic fallback mock data
-    setPortfolioData({
-      totalValue: 127450.85,
-      breakdown: [
-        { symbol: 'ETH', balance: '18.45', value: 47589.00, change24h: 1.8, price: 2580 },
-        { symbol: 'BTC', balance: '1.23', value: 53177.50, change24h: 2.4, price: 43250 },
-        { symbol: 'UNI', balance: '1342', value: 9058.50, change24h: 0.9, price: 6.75 },
-        { symbol: 'LINK', balance: '567', value: 8618.40, change24h: 3.2, price: 15.20 },
-        { symbol: 'AAVE', balance: '89', value: 8490.60, change24h: -1.2, price: 95.40 },
-        { symbol: 'MATIC', balance: '15600', value: 13260.00, change24h: -0.5, price: 0.85 },
-        { symbol: 'COMP', balance: '76', value: 4430.80, change24h: 2.1, price: 58.30 }
-      ],
-      dailyChange: 3441.17,
-      dailyPercentage: 2.7,
-      lastUpdated: new Date().toISOString()
-    });
-
-    setMarketData({
-      BTC: { price: 43250, change24h: 2.4 },
-      ETH: { price: 2580, change24h: 1.8 },
-      UNI: { price: 6.75, change24h: 0.9 },
-      LINK: { price: 15.20, change24h: 3.2 },
-      AAVE: { price: 95.40, change24h: -1.2 },
-      MATIC: { price: 0.85, change24h: -0.5 },
-      COMP: { price: 58.30, change24h: 2.1 }
-    });
-
-    setAgents(TradingService.getAgents());
+    // No dummy data - show loading state until wallet is connected
+    setPortfolioData(null);
+    setMarketData(null);
+    setAgents([]);
     setLoading(false);
   };
 
@@ -196,10 +115,10 @@ export default function Home() {
     );
   }
 
-  // Calculate metrics from portfolio data with real data
-  const totalValue = portfolioData?.totalValue || 127450.85;
-  const dailyChange = portfolioData?.dailyChange || 3441.17;
-  const dailyPercentage = portfolioData?.dailyPercentage || 2.7;
+  // Calculate metrics from portfolio data - no fallback dummy values
+  const totalValue = portfolioData?.totalValue || 0;
+  const dailyChange = portfolioData?.dailyChange || 0;
+  const dailyPercentage = portfolioData?.dailyPercentage || 0;
   const weeklyPercentage = dailyPercentage * 3.2; // Estimated weekly from daily
 
   // Generate realistic chart data based on actual portfolio value
@@ -503,81 +422,124 @@ export default function Home() {
         <div className="grid grid-cols-10 gap-6">
           {/* Left Column - 70% */}
           <div className="col-span-7 space-y-6">
-            {/* Evaluation Section */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-[#F6F6F6] rounded-xl p-6"
-            >
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-3xl font-semibold text-[#1A1A1A]">Portfolio Evaluation</h2>
-                <div className="flex items-center space-x-2">
-                  {['1D', '7D', '1M', '1Y'].map((range) => (
-                    <button
-                      key={range}
-                      onClick={() => setDateRange(range)}
-                      className={`px-3 py-1 rounded border border-[#E0E0E0] text-sm transition-colors font-medium ${
-                        dateRange === range 
-                          ? 'bg-[#1A1A1A] text-white border-[#1A1A1A]' 
-                          : 'bg-white text-[#7A7A7A] hover:bg-[#F6F6F6]'
-                      }`}
-                    >
-                      {range}
-                    </button>
-                  ))}
+            {/* Show appropriate content based on state */}
+            {!isConnected ? (
+              /* No wallet connected - show connect prompt */
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-[#F6F6F6] rounded-xl p-12 text-center"
+              >
+                <div className="w-16 h-16 bg-gradient-to-r from-[#00D9FF] to-[#2FE0FF] rounded-full flex items-center justify-center mx-auto mb-4">
+                  <SparklesIcon className="w-8 h-8 text-white" />
                 </div>
-              </div>
-
-              {/* Portfolio Value */}
-              <div className="mb-6">
-                <div className="flex items-end justify-between mb-4">
-                  <div>
-                    <div className="text-3xl font-bold text-[#1A1A1A]">
-                      ${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                <h3 className="text-2xl font-semibold text-[#1A1A1A] mb-3">Connect Your Wallet</h3>
+                <p className="text-[#7A7A7A] mb-6 max-w-md mx-auto">
+                  Connect your wallet to view your real portfolio, access AI trading agents, and start managing your crypto assets.
+                </p>
+                <WalletConnection />
+              </motion.div>
+            ) : loading ? (
+              /* Loading state - show shimmer */
+              <PortfolioShimmer />
+            ) : !portfolioData || (portfolioData.assets && portfolioData.assets.length === 0) ? (
+              /* No assets found */
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-[#F6F6F6] rounded-xl p-12 text-center"
+              >
+                <div className="w-16 h-16 bg-gradient-to-r from-gray-400 to-gray-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <EyeIcon className="w-8 h-8 text-white" />
+                </div>
+                <h3 className="text-2xl font-semibold text-[#1A1A1A] mb-3">No Assets Found</h3>
+                <p className="text-[#7A7A7A] mb-6 max-w-md mx-auto">
+                  No crypto assets were found in your wallet on supported networks (Ethereum mainnet). 
+                  Make sure you have tokens in your wallet or try a different wallet address.
+                </p>
+                <div className="text-sm text-[#7A7A7A]">
+                  <p>Supported networks: Ethereum Mainnet</p>
+                  <p className="mt-1">Additional networks require upgraded API access</p>
+                </div>
+              </motion.div>
+            ) : (
+              /* Real portfolio data */
+              <>
+                {/* Evaluation Section */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-[#F6F6F6] rounded-xl p-6"
+                >
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-3xl font-semibold text-[#1A1A1A]">Portfolio Evaluation</h2>
+                    <div className="flex items-center space-x-2">
+                      {['1D', '7D', '1M', '1Y'].map((range) => (
+                        <button
+                          key={range}
+                          onClick={() => setDateRange(range)}
+                          className={`px-3 py-1 rounded border border-[#E0E0E0] text-sm transition-colors font-medium ${
+                            dateRange === range 
+                              ? 'bg-[#1A1A1A] text-white border-[#1A1A1A]' 
+                              : 'bg-white text-[#7A7A7A] hover:bg-[#F6F6F6]'
+                          }`}
+                        >
+                          {range}
+                        </button>
+                      ))}
                     </div>
-                    <div className="flex items-center space-x-2 text-sm">
-                      <span className={`font-medium ${dailyChange >= 0 ? 'text-[#22C55E]' : 'text-[#EF4444]'}`}>
-                        {dailyChange >= 0 ? '+' : ''}${Math.abs(dailyChange).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({dailyPercentage >= 0 ? '+' : ''}{dailyPercentage.toFixed(2)}%)
-                      </span>
-                      <span className="text-[#7A7A7A]">today</span>
-                    </div>
-                    {portfolioData?.lastUpdated && (
-                      <div className="text-xs text-[#7A7A7A] mt-1">
-                        Last updated: {new Date(portfolioData.lastUpdated).toLocaleTimeString()}
-                      </div>
-                    )}
                   </div>
-                </div>
-                
-                {/* Chart Visualization */}
-                <div className="bg-white rounded-lg p-4">
-                  <PortfolioChart 
-                    data={chartData} 
-                    dateRange={dateRange} 
-                    onDateRangeChange={setDateRange}
-                  />
-                </div>
-              </div>
 
-              {/* Metrics Grid */}
-              <div className="grid grid-cols-4 gap-4">
-                {metrics.map((metric, index) => (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="text-center bg-white rounded-lg p-4 w-[180px]"
-                  >
-                    <div className="text-base font-semibold text-[#1A1A1A] mb-1">{metric.value}</div>
-                    <div className="text-sm text-[#7A7A7A] mb-2">{metric.label}</div>
-                    <span className="inline-block px-2 py-1 rounded-full text-xs font-medium text-white bg-[#22C55E]">
-                      {metric.badge}
-                    </span>
-                  </motion.div>
-                ))}
-              </div>
-            </motion.div>
+                  {/* Portfolio Value */}
+                  <div className="mb-6">
+                    <div className="flex items-end justify-between mb-4">
+                      <div>
+                        <div className="text-3xl font-bold text-[#1A1A1A]">
+                          ${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </div>
+                        <div className="flex items-center space-x-2 text-sm">
+                          <span className={`font-medium ${dailyChange >= 0 ? 'text-[#22C55E]' : 'text-[#EF4444]'}`}>
+                            {dailyChange >= 0 ? '+' : ''}${Math.abs(dailyChange).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({dailyPercentage >= 0 ? '+' : ''}{dailyPercentage.toFixed(2)}%)
+                          </span>
+                          <span className="text-[#7A7A7A]">today</span>
+                        </div>
+                        {portfolioData?.lastUpdated && (
+                          <div className="text-xs text-[#7A7A7A] mt-1">
+                            Last updated: {new Date(portfolioData.lastUpdated).toLocaleTimeString()}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Chart Visualization */}
+                    <div className="bg-white rounded-lg p-4">
+                      <PortfolioChart 
+                        data={chartData} 
+                        dateRange={dateRange} 
+                        onDateRangeChange={setDateRange}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Metrics Grid */}
+                  <div className="grid grid-cols-4 gap-4">
+                    {metrics.map((metric, index) => (
+                      <motion.div
+                        key={index}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                        className="text-center bg-white rounded-lg p-4 w-[180px]"
+                      >
+                        <div className="text-base font-semibold text-[#1A1A1A] mb-1">{metric.value}</div>
+                        <div className="text-sm text-[#7A7A7A] mb-2">{metric.label}</div>
+                        <span className="inline-block px-2 py-1 rounded-full text-xs font-medium text-white bg-[#22C55E]">
+                          {metric.badge}
+                        </span>
+                      </motion.div>
+                    ))}
+                  </div>
+                </motion.div>
 
             {/* AI Agents Section */}
             <motion.div
@@ -630,157 +592,217 @@ export default function Home() {
                 ))}
               </div>
             </motion.div>
+              </>
+            )}
 
-            {/* Trading Signals Section */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              className="bg-[#F6F6F6] rounded-xl p-6"
-            >
-              <TradingSignals />
-            </motion.div>
+            {/* Trading Signals Section - show for all states if connected */}
+            {isConnected && !loading && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="bg-[#F6F6F6] rounded-xl p-6"
+              >
+                <TradingSignals />
+              </motion.div>
+            )}
           </div>
 
           {/* Right Column - 30% */}
           <div className="col-span-3 space-y-6">
-            {/* Allocation Grid */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="bg-[#F6F6F6] rounded-xl p-6"
-            >
-              <h3 className="text-xl font-semibold text-[#1A1A1A] mb-6">Portfolio Allocation</h3>
-              
-              {/* Masonry-style Grid */}
-              <div className="space-y-3">
-                {/* BTC Card - Large */}
-                {allocations.find(a => a.symbol === 'BTC') && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="w-[220px] h-[180px] rounded-xl p-4 text-white relative cursor-pointer hover:scale-105 transition-transform"
-                    style={{ backgroundColor: allocations.find(a => a.symbol === 'BTC')?.color }}
-                  >
-                    <div className="flex items-center space-x-2 mb-2">
-                      <span className="text-3xl">{allocations.find(a => a.symbol === 'BTC')?.icon}</span>
-                      <div>
-                        <div className="font-semibold text-lg">BTC</div>
-                        <div className="text-sm opacity-90">Bitcoin</div>
-                      </div>
+            {!isConnected ? (
+              /* No wallet connected - show features */
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="space-y-6"
+              >
+                <div className="bg-[#F6F6F6] rounded-xl p-6">
+                  <h3 className="text-xl font-semibold text-[#1A1A1A] mb-4">Features</h3>
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-3">
+                      <ChartBarIcon className="w-5 h-5 text-[#00D9FF]" />
+                      <span className="text-[#7A7A7A]">Real-time Portfolio Tracking</span>
                     </div>
-                    
-                    <div className="mt-auto absolute bottom-4">
-                      <div className="text-xl font-bold">{allocations.find(a => a.symbol === 'BTC')?.amount}</div>
-                      <div className="text-sm opacity-90">${allocations.find(a => a.symbol === 'BTC')?.value.toLocaleString()}</div>
-                      <div className="text-sm font-medium mt-1">{allocations.find(a => a.symbol === 'BTC')?.percentage}%</div>
+                    <div className="flex items-center space-x-3">
+                      <BoltIcon className="w-5 h-5 text-[#2FE0FF]" />
+                      <span className="text-[#7A7A7A]">AI Trading Agents</span>
                     </div>
-                  </motion.div>
-                )}
-
-                {/* ETH Card - Large */}
-                {allocations.find(a => a.symbol === 'ETH') && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.1 }}
-                    className="w-[220px] h-[180px] rounded-xl p-4 text-white relative cursor-pointer hover:scale-105 transition-transform"
-                    style={{ backgroundColor: allocations.find(a => a.symbol === 'ETH')?.color }}
-                  >
-                    <div className="flex items-center space-x-2 mb-2">
-                      <span className="text-3xl">{allocations.find(a => a.symbol === 'ETH')?.icon}</span>
-                      <div>
-                        <div className="font-semibold text-lg">ETH</div>
-                        <div className="text-sm opacity-90">Ethereum</div>
-                      </div>
+                    <div className="flex items-center space-x-3">
+                      <GlobeAltIcon className="w-5 h-5 text-[#22C55E]" />
+                      <span className="text-[#7A7A7A]">Multi-chain Support</span>
                     </div>
-                    
-                    <div className="mt-auto absolute bottom-4">
-                      <div className="text-xl font-bold">{allocations.find(a => a.symbol === 'ETH')?.amount}</div>
-                      <div className="text-sm opacity-90">${allocations.find(a => a.symbol === 'ETH')?.value.toLocaleString()}</div>
-                      <div className="text-sm font-medium mt-1">{allocations.find(a => a.symbol === 'ETH')?.percentage}%</div>
-                    </div>
-                  </motion.div>
-                )}
-
-                {/* Other tokens - Smaller cards in grid */}
-                <div className="grid grid-cols-2 gap-3">
-                  {allocations.filter(a => a.symbol !== 'BTC' && a.symbol !== 'ETH').map((token, index) => (
-                    <motion.div
-                      key={token.symbol}
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: (index + 2) * 0.1 }}
-                      className="w-[170px] h-[140px] rounded-xl p-3 text-white relative cursor-pointer hover:scale-105 transition-transform"
-                      style={{ backgroundColor: token.color }}
-                    >
-                      {token.warning && (
-                        <div className="absolute top-2 right-2">
-                          <ExclamationTriangleIcon className="w-4 h-4 text-[#EF4444]" />
-                        </div>
-                      )}
-                      
-                      <div className="flex items-center space-x-2 mb-2">
-                        <span className="text-lg">{token.icon}</span>
-                        <div>
-                          <div className="font-semibold text-sm">{token.symbol}</div>
-                          <div className="text-xs opacity-90">{token.name}</div>
-                        </div>
-                      </div>
-                      
-                      <div className="mt-auto absolute bottom-3">
-                        <div className="text-sm font-bold">{token.amount}</div>
-                        <div className="text-xs opacity-90">${token.value.toLocaleString()}</div>
-                        <div className="text-xs font-medium mt-1">{token.percentage}%</div>
-                      </div>
-                    </motion.div>
-                  ))}
+                  </div>
+                </div>
+              </motion.div>
+            ) : loading ? (
+              /* Loading state for right column */
+              <div className="space-y-6">
+                <div className="bg-[#F6F6F6] rounded-xl p-6 animate-pulse">
+                  <div className="h-6 bg-gray-300 rounded w-32 mb-4"></div>
+                  <div className="space-y-3">
+                    <div className="h-32 bg-gray-300 rounded"></div>
+                    <div className="h-32 bg-gray-300 rounded"></div>
+                  </div>
                 </div>
               </div>
-            </motion.div>
+            ) : !portfolioData || (portfolioData.assets && portfolioData.assets.length === 0) ? (
+              /* No assets state for right column */
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="bg-[#F6F6F6] rounded-xl p-6"
+              >
+                <h3 className="text-xl font-semibold text-[#1A1A1A] mb-4">Portfolio Allocation</h3>
+                <div className="text-center py-8">
+                  <div className="w-12 h-12 bg-gray-300 rounded-full mx-auto mb-3"></div>
+                  <p className="text-[#7A7A7A] text-sm">No assets to display</p>
+                </div>
+              </motion.div>
+            ) : (
+              /* Real portfolio allocation */
+              <>
+                {/* Allocation Grid */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="bg-[#F6F6F6] rounded-xl p-6"
+                >
+                  <h3 className="text-xl font-semibold text-[#1A1A1A] mb-6">Portfolio Allocation</h3>
+                  
+                  {/* Masonry-style Grid */}
+                  <div className="space-y-3">
+                    {/* BTC Card - Large */}
+                    {allocations.find(a => a.symbol === 'BTC') && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="w-[220px] h-[180px] rounded-xl p-4 text-white relative cursor-pointer hover:scale-105 transition-transform"
+                        style={{ backgroundColor: allocations.find(a => a.symbol === 'BTC')?.color }}
+                      >
+                        <div className="flex items-center space-x-2 mb-2">
+                          <span className="text-3xl">{allocations.find(a => a.symbol === 'BTC')?.icon}</span>
+                          <div>
+                            <div className="font-semibold text-lg">BTC</div>
+                            <div className="text-sm opacity-90">Bitcoin</div>
+                          </div>
+                        </div>
+                        
+                        <div className="mt-auto absolute bottom-4">
+                          <div className="text-xl font-bold">{allocations.find(a => a.symbol === 'BTC')?.amount}</div>
+                          <div className="text-sm opacity-90">${allocations.find(a => a.symbol === 'BTC')?.value.toLocaleString()}</div>
+                          <div className="text-sm font-medium mt-1">{allocations.find(a => a.symbol === 'BTC')?.percentage}%</div>
+                        </div>
+                      </motion.div>
+                    )}
 
-            {/* Breakdown Table */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="bg-[#F6F6F6] rounded-xl p-6"
-            >
-              <h3 className="text-xl font-semibold text-[#1A1A1A] mb-6">Asset Breakdown</h3>
-              
-              <div className="space-y-1">
-                {breakdown.map((item, index) => (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    className="flex items-center justify-between py-3 px-3 hover:bg-white rounded-lg transition-colors border-b border-[#E0E0E0] last:border-b-0"
-                    style={{ height: '48px' }}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className="w-4 h-4 bg-[#E0E0E0] rounded-full flex items-center justify-center">
-                        <span className="text-xs font-bold text-[#1A1A1A]">{item.token.charAt(0)}</span>
-                      </div>
-                      <div>
-                        <div className="font-medium text-[#1A1A1A] text-sm">{item.token}</div>
-                        <div className="text-xs text-[#7A7A7A]">{item.amount}</div>
-                      </div>
+                    {/* ETH Card - Large */}
+                    {allocations.find(a => a.symbol === 'ETH') && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: 0.1 }}
+                        className="w-[220px] h-[180px] rounded-xl p-4 text-white relative cursor-pointer hover:scale-105 transition-transform"
+                        style={{ backgroundColor: allocations.find(a => a.symbol === 'ETH')?.color }}
+                      >
+                        <div className="flex items-center space-x-2 mb-2">
+                          <span className="text-3xl">{allocations.find(a => a.symbol === 'ETH')?.icon}</span>
+                          <div>
+                            <div className="font-semibold text-lg">ETH</div>
+                            <div className="text-sm opacity-90">Ethereum</div>
+                          </div>
+                        </div>
+                        
+                        <div className="mt-auto absolute bottom-4">
+                          <div className="text-xl font-bold">{allocations.find(a => a.symbol === 'ETH')?.amount}</div>
+                          <div className="text-sm opacity-90">${allocations.find(a => a.symbol === 'ETH')?.value.toLocaleString()}</div>
+                          <div className="text-sm font-medium mt-1">{allocations.find(a => a.symbol === 'ETH')?.percentage}%</div>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {/* Other tokens - Smaller cards in grid */}
+                    <div className="grid grid-cols-2 gap-3">
+                      {allocations.filter(a => a.symbol !== 'BTC' && a.symbol !== 'ETH').map((token, index) => (
+                        <motion.div
+                          key={token.symbol}
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: (index + 2) * 0.1 }}
+                          className="w-[170px] h-[140px] rounded-xl p-3 text-white relative cursor-pointer hover:scale-105 transition-transform"
+                          style={{ backgroundColor: token.color }}
+                        >
+                          {token.warning && (
+                            <div className="absolute top-2 right-2">
+                              <ExclamationTriangleIcon className="w-4 h-4 text-[#EF4444]" />
+                            </div>
+                          )}
+                          
+                          <div className="flex items-center space-x-2 mb-2">
+                            <span className="text-lg">{token.icon}</span>
+                            <div>
+                              <div className="font-semibold text-sm">{token.symbol}</div>
+                              <div className="text-xs opacity-90">{token.name}</div>
+                            </div>
+                          </div>
+                          
+                          <div className="mt-auto absolute bottom-3">
+                            <div className="text-sm font-bold">{token.amount}</div>
+                            <div className="text-xs opacity-90">${token.value.toLocaleString()}</div>
+                            <div className="text-xs font-medium mt-1">{token.percentage}%</div>
+                          </div>
+                        </motion.div>
+                      ))}
                     </div>
-                    
-                    <div className="text-right">
-                      <div className="font-medium text-[#1A1A1A] text-sm">{item.value}</div>
-                      <div className={`text-xs font-medium ${
-                        item.positive ? 'text-[#22C55E]' : 'text-[#EF4444]'
-                      }`}>
-                        {item.percentage}
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            </motion.div>
+                  </div>
+                </motion.div>
+
+                {/* Breakdown Table */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="bg-[#F6F6F6] rounded-xl p-6"
+                >
+                  <h3 className="text-xl font-semibold text-[#1A1A1A] mb-6">Asset Breakdown</h3>
+                  
+                  <div className="space-y-1">
+                    {breakdown.map((item, index) => (
+                      <motion.div
+                        key={index}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                        className="flex items-center justify-between py-3 px-3 hover:bg-white rounded-lg transition-colors border-b border-[#E0E0E0] last:border-b-0"
+                        style={{ height: '48px' }}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className="w-4 h-4 bg-[#E0E0E0] rounded-full flex items-center justify-center">
+                            <span className="text-xs font-bold text-[#1A1A1A]">{item.token.charAt(0)}</span>
+                          </div>
+                          <div>
+                            <div className="font-medium text-[#1A1A1A] text-sm">{item.token}</div>
+                            <div className="text-xs text-[#7A7A7A]">{item.amount}</div>
+                          </div>
+                        </div>
+                        
+                        <div className="text-right">
+                          <div className="font-medium text-[#1A1A1A] text-sm">{item.value}</div>
+                          <div className={`text-xs font-medium ${
+                            item.positive ? 'text-[#22C55E]' : 'text-[#EF4444]'
+                          }`}>
+                            {item.percentage}
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </motion.div>
+              </>
+            )}
           </div>
         </div>
       </main>
