@@ -1,0 +1,36 @@
+{
+  "name": "vibefusion-ai",
+  "version": "1.0.0",
+  "description": "Decentralized agentic video trading platform",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run frontend\" \"npm run backend\" \"npm run agents\"",
+    "frontend": "cd frontend && npm run dev",
+    "backend": "cd backend && npm run dev",
+    "agents": "cd agents && npm run start:all",
+    "build": "npm run build:frontend && npm run build:backend",
+    "build:frontend": "cd frontend && npm run build",
+    "build:backend": "cd backend && npm run build",
+    "test": "npm run test:frontend && npm run test:backend && npm run test:agents",
+    "test:frontend": "cd frontend && npm test",
+    "test:backend": "cd backend && npm test",
+    "test:agents": "cd agents && npm test",
+    "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install && cd ../agents && npm install",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down"
+  },
+  "keywords": [
+    "defi",
+    "trading",
+    "ai",
+    "agents",
+    "crypto",
+    "web3"
+  ],
+  "author": "VibeFusion.ai Team",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  }
+}

@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_BACKEND_URL=http://backend:5000
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - vibefusion-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=development
+      - MONGODB_URL=mongodb://mongodb:27017/vibefusion
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - mongodb
+      - redis
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    networks:
+      - vibefusion-network
+
+  agents:
+    build:
+      context: ./agents
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=development
+      - REDIS_URL=redis://redis:6379
+      - BACKEND_URL=http://backend:5000
+    depends_on:
+      - redis
+      - backend
+    volumes:
+      - ./agents:/app
+      - /app/node_modules
+    networks:
+      - vibefusion-network
+
+  mongodb:
+    image: mongo:6.0
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=vibefusion
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - vibefusion-network
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - vibefusion-network
+
+volumes:
+  mongodb_data:
+  redis_data:
+
+networks:
+  vibefusion-network:
+    driver: bridge
